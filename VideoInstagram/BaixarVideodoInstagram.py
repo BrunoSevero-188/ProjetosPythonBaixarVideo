@@ -1,46 +1,51 @@
-import instaloader
-from pathlib import Path
+import instaloader  # Importa a biblioteca para interagir com o Instagram
+from pathlib import Path  # Importa biblioteca para caminhos de arquivos
 
+# Função simples para converter 's' em True e 'n' em False
 def sim_ou_nao(pergunta):
-    """Auxiliar para converter entrada do usuário em Booleano"""
     resposta = input(f"{pergunta} (s/n): ").strip().lower()
     return resposta == 's'
 
-url = input("Digite a URL do post do Instagram: ").strip()
+url = input("Digite a URL do Instagram: ").strip()
 
 if not url:
     print("Nenhuma URL foi informada.")
 else:
-    # --- Menu de Escolhas ---
-    print("--- Configurações de Download ---")
-    quer_fotos = sim_ou_nao("Deseja baixar as fotos/capa?")
+    # Pergunta apenas se o usuário quer a foto de capa (Thumbnail)
+    quer_capa = sim_ou_nao("Deseja baixar a capa (foto) do vídeo?")
     
-    # Inicializa o objeto com as escolhas do usuário
+    # Configura o Instaloader para baixar apenas o necessário (evita arquivos extras)
     L = instaloader.Instaloader(
-        download_pictures=quer_fotos,
-        download_videos=True, # Mantemos True pois o foco é o vídeo
-        download_geotags=False
+        download_pictures=quer_capa,  # Baixa foto apenas se o usuário quis
+        download_videos=True,         # Sempre tenta baixar o vídeo
+        download_video_thumbnails=quer_capa,
+        download_geotags=False,       # Não baixa localização
+        download_comments=False,      # Não baixa comentários
+        save_metadata=False,          # Não cria arquivo .json de dados
+        post_metadata_txt_pattern=""  # Não cria arquivo .txt de legenda
     )
 
-    destino_informado = input("Digite a pasta onde deseja salvar: ").strip()
+    escolha_pasta = input("\nDeseja escolher a pasta? (s/n): ").strip().lower()
 
-    if not destino_informado:
-        print("Nenhum caminho foi informado.")
+    if escolha_pasta == 's':
+        destino_informado = input("Digite o caminho: ").strip()
+        destino = Path(destino_informado).expanduser() if destino_informado else Path.home() / "Downloads"
     else:
-        destino = Path(destino_informado).expanduser()
-        destino.mkdir(parents=True, exist_ok=True)
+        destino = Path.home() / "Downloads"
+    
+    destino.mkdir(parents=True, exist_ok=True)
 
-        try:
-            # Extrai o shortcode da URL
-            shortcode = url.split("/")[-2] if url.endswith("/") else url.split("/")[-1]
-            
-            print("Buscando post...")
-            post = instaloader.Post.from_shortcode(L.context, shortcode)
+    try:
+        # Limpa a URL para extrair apenas o código identificador do post (shortcode)
+        url_limpa = url.rstrip('/')
+        shortcode = url_limpa.split("/")[-1]
+        
+        # Faz o download do post usando o identificador extraído
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+        print(f"Baixando post de: {post.owner_username}")
+        L.download_post(post, target=str(destino))
+        
+        print(f"Download do Instagram concluído!")
 
-            # Executa o download com as preferências definidas
-            L.download_post(post, target=str(destino))
-            
-            print(f"Processo concluído! Verifique a pasta: {destino.resolve()}")
-
-        except Exception as e:
-            print(f"Erro ao processar: {e}")
+    except Exception as e:
+        print(f"Erro no Instagram: {e}")
